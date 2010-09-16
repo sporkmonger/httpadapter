@@ -1,0 +1,49 @@
+== HTTPAdapter
+
+Homepage::  httpadapter.rubyforge.org[http://httpadapter.rubyforge.org/]
+Author::    Bob Aman  (mailto:bob@sporkmonger.com)
+Copyright:: Copyright © 2010 Google Inc.
+License::   Apache 2.0
+
+== Description
+
+A library for translating HTTP request and response objects for various clients into a common representation.
+
+== Reference
+
+- {HTTPAdapter}
+
+== Adapters
+
+- {HTTPAdapter::NetHTTPRequestAdapter}
+- {HTTPAdapter::NetHTTPResponseAdapter}
+- {HTTPAdapter::RackRequestAdapter}
+- {HTTPAdapter::RackResponseAdapter}
+- {HTTPAdapter::TyphoeusRequestAdapter}
+- {HTTPAdapter::TyphoeusResponseAdapter}
+
+== Example Usage
+
+  response = Net::HTTP.start('www.google.com', 80) { |http| http.get('/') }
+  # => #<Net::HTTPOK 200 OK readbody=true>
+  result = HTTPAdapter.adapt_response(
+    response, HTTPAdapter::NetHTTPResponseAdapter
+  )
+  # => [
+  #   200,
+  #   [
+  #     ["Expires", "-1"],
+  #     ["Content-Type", "text/html; charset=ISO-8859-1"],
+  #     ["X-Xss-Protection", "1; mode=block"],
+  #     ["Server", "gws"],
+  #     ["Date", "Thu, 26 Aug 2010 22:13:03 GMT"],
+  #     ["Set-Cookie", "<snip>"],
+  #     ["Cache-Control", "private, max-age=0"],
+  #     ["Transfer-Encoding", "chunked"]
+  #   ],
+  #   ["<snip>"]
+  # ]
+
+== Install
+
+* sudo gem install httpadapter
