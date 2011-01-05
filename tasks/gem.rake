@@ -30,7 +30,7 @@ namespace :gem do
     s.add_development_dependency("diff-lcs", "~> 1.1.2")
 
     s.add_development_dependency("typhoeus", "~> 0.1.31")
-    s.add_development_dependency("rack", "~> 1.2.1")
+    s.add_development_dependency("rack", "~> 1.2.0")
 
     s.require_path = "lib"
   end
