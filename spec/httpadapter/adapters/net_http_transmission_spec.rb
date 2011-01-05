@@ -60,7 +60,7 @@ describe HTTPAdapter::NetHTTPRequestAdapter, 'transmitting a GET tuple' do
   before do
     @tuple = [
       'GET',
-      'https://www.google.com/',
+      'https://encrypted.google.com/',
       [],
       []
     ]

@@ -322,7 +322,9 @@ describe HTTPAdapter::NetHTTPRequestAdapter,
   end
 
   it 'should convert the body properly' do
-    @request.body.should == ''
+    # Net::HTTP is weird in that it treats nils like empty strings.
+    [nil, ''].should include(@request.body)
+    [nil, 0].should include(@request.content_length)
   end
 end
 
