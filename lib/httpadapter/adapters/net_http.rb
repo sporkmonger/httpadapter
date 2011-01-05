@@ -114,6 +114,21 @@ module HTTPAdapter #:nodoc:
           store = OpenSSL::X509::Store.new
           store.set_default_paths
           http.cert_store = store
+          context = http.instance_variable_get('@ssl_context')
+          if context && context.respond_to?(:tmp_dh_callback) &&
+              context.tmp_dh_callback == nil
+            context.tmp_dh_callback = lambda do |*args|
+              tmp_dh_key_file = File.expand_path(
+                ENV['TMP_DH_KEY_FILE'] || "~/.dhparams.pem"
+              )
+              if File.exists?(tmp_dh_key_file)
+                OpenSSL::PKey::DH.new(File.read(tmp_dh_key_file))
+              else
+                # Slow, fix with `openssl dhparam -out ~/.dhparams.pem 2048`
+                OpenSSL::PKey::DH.new(512)
+              end
+            end
+          end
         end
         http.start
         connection = HTTPAdapter::Connection.new(
