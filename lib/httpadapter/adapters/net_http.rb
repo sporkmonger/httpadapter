@@ -111,6 +111,10 @@ module HTTPAdapter #:nodoc:
             http.enable_post_connection_check = true
           end
           http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+          ca_file = File.expand_path(ENV['CA_FILE'] || '~/.cacert.pem')
+          if File.exists?(ca_file)
+            http.ca_file = ca_file
+          end
           store = OpenSSL::X509::Store.new
           store.set_default_paths
           http.cert_store = store
@@ -119,7 +123,7 @@ module HTTPAdapter #:nodoc:
               context.tmp_dh_callback == nil
             context.tmp_dh_callback = lambda do |*args|
               tmp_dh_key_file = File.expand_path(
-                ENV['TMP_DH_KEY_FILE'] || "~/.dhparams.pem"
+                ENV['TMP_DH_KEY_FILE'] || '~/.dhparams.pem'
               )
               if File.exists?(tmp_dh_key_file)
                 OpenSSL::PKey::DH.new(File.read(tmp_dh_key_file))
