@@ -12,8 +12,6 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-require 'httpadapter'
-
 module HTTPAdapter #:nodoc:
   class Connection
     def initialize(host, port, connection, options={})
