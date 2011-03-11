@@ -18,7 +18,9 @@ require 'net/http'
 require 'addressable/uri'
 
 module HTTPAdapter #:nodoc:
-  class NetHTTPRequestAdapter
+  class NetHTTPAdapter
+    include HTTPAdapter
+
     METHOD_MAPPING = {
       # RFC 2616
       'OPTIONS' => Net::HTTP::Options,
@@ -38,120 +40,6 @@ module HTTPAdapter #:nodoc:
       'UNLOCK' => Net::HTTP::Unlock
     }
 
-    def initialize(request, options={})
-      unless request.kind_of?(Net::HTTPRequest)
-        raise TypeError, "Expected Net::HTTPRequest, got #{request.class}."
-      end
-      @request = request
-      @uri = Addressable::URI.parse(options[:uri] || request.path || "")
-      if !@uri.host && options[:host]
-        @uri.host = options[:host]
-        if !@uri.scheme && options[:scheme]
-          @uri.scheme = options[:scheme]
-        elsif !@uri.scheme
-          @uri.scheme = 'http'
-        end
-        if !@uri.port && options[:port]
-          @uri.port = options[:port]
-        end
-        @uri.scheme = @uri.normalized_scheme
-        @uri.authority = @uri.normalized_authority
-      end
-    end
-
-    def to_ary
-      method = @request.method.to_s.upcase
-      uri = @uri.to_str
-      headers = []
-      @request.canonical_each do |header, value|
-        headers << [header, value]
-      end
-      body = @request.body || ""
-      return [method, uri, headers, [body]]
-    end
-
-    def self.from_ary(array)
-      method, uri, headers, body = array
-      method = method.to_s.upcase
-      uri = Addressable::URI.parse(uri)
-      request_class = METHOD_MAPPING[method]
-      unless request_class
-        raise ArgumentError, "Unknown HTTP method: #{method}"
-      end
-      request = request_class.new(uri.request_uri)
-      headers.each do |header, value|
-        request[header] = value
-        if header.downcase == 'Content-Type'.downcase
-          request.content_type = value
-        end
-      end
-      merged_body = ""
-      body.each do |chunk|
-        merged_body += chunk
-      end
-      if merged_body.length > 0
-        request.body = merged_body
-      elsif ['POST', 'PUT'].include?(method)
-        request.content_length = 0
-      end
-      return request
-    end
-
-    def self.transmit(request, connection=nil)
-      method, uri, headers, body = request
-      uri = Addressable::URI.parse(uri)
-      net_http_request = self.from_ary([method, uri, headers, body])
-      net_http_response = nil
-      unless connection
-        http = Net::HTTP.new(uri.host, uri.inferred_port)
-        if uri.normalized_scheme == 'https'
-          require 'net/https'
-          http.use_ssl = true
-          if http.respond_to?(:enable_post_connection_check=)
-            http.enable_post_connection_check = true
-          end
-          http.verify_mode = OpenSSL::SSL::VERIFY_PEER
-          ca_file = File.expand_path(ENV['CA_FILE'] || '~/.cacert.pem')
-          if File.exists?(ca_file)
-            http.ca_file = ca_file
-          end
-          store = OpenSSL::X509::Store.new
-          store.set_default_paths
-          http.cert_store = store
-          context = http.instance_variable_get('@ssl_context')
-          if context && context.respond_to?(:tmp_dh_callback) &&
-              context.tmp_dh_callback == nil
-            context.tmp_dh_callback = lambda do |*args|
-              tmp_dh_key_file = File.expand_path(
-                ENV['TMP_DH_KEY_FILE'] || '~/.dhparams.pem'
-              )
-              if File.exists?(tmp_dh_key_file)
-                OpenSSL::PKey::DH.new(File.read(tmp_dh_key_file))
-              else
-                # Slow, fix with `openssl dhparam -out ~/.dhparams.pem 2048`
-                OpenSSL::PKey::DH.new(512)
-              end
-            end
-          end
-        end
-        http.start
-        connection = HTTPAdapter::Connection.new(
-          uri.host, uri.inferred_port, http,
-          :open => [:start, [], nil],
-          :close => [:finish, [], nil]
-        )
-      else
-        http = nil
-      end
-      net_http_response = connection.connection.request(net_http_request)
-      if http
-        connection.close
-      end
-      return NetHTTPResponseAdapter.new(net_http_response).to_ary
-    end
-  end
-
-  class NetHTTPResponseAdapter
     STATUS_MESSAGES = {
       100 => "Continue",
       101 => "Switching Protocols",
@@ -209,25 +97,87 @@ module HTTPAdapter #:nodoc:
     }
     STATUS_MAPPING = Net::HTTPResponse::CODE_TO_OBJ
 
-    def initialize(response)
-      unless response.kind_of?(Net::HTTPResponse)
-        raise TypeError, "Expected Net::HTTPResponse, got #{response.class}."
-      end
-      @response = response
+    def initialize(&block)
+      @connection_config = block
     end
 
-    def to_ary
-      status = @response.code.to_i
+    def convert_request_to_a(request_obj)
+      unless request_obj.kind_of?(Net::HTTPRequest)
+        raise TypeError, "Expected Net::HTTPRequest, got #{request_obj.class}."
+      end
+      method = request_obj.method.to_s.upcase
+      host_from_header = nil
+      scheme_from_header = nil
       headers = []
-      @response.canonical_each do |header, value|
+      request_obj.canonical_each do |header, value|
+        if header.downcase == 'X-Forwarded-Proto'.downcase
+          scheme_from_header = value
+        elsif header.downcase == 'Host'.downcase
+          host_from_header = value
+        end
         headers << [header, value]
       end
-      body = @response.body || ""
+      uri = Addressable::URI.parse(request_obj.path || "")
+      uri.host ||= host_from_header
+      if uri.host
+        uri.scheme ||= scheme_from_header || 'http'
+        uri.scheme = uri.normalized_scheme
+        uri.authority = uri.normalized_authority
+      end
+      uri = uri.to_str
+      body = request_obj.body || ""
+      return [method, uri, headers, [body]]
+    end
+
+    def convert_request_from_a(request_ary)
+      method, uri, headers, body = request_ary
+      method = method.to_s.upcase
+      host_from_header = nil
+      uri = Addressable::URI.parse(uri)
+      request_class = METHOD_MAPPING[method]
+      unless request_class
+        raise ArgumentError, "Unknown HTTP method: #{method}"
+      end
+      request = request_class.new(uri.request_uri)
+      headers.each do |header, value|
+        request[header] = value
+        if header.downcase == 'Content-Type'.downcase
+          request.content_type = value
+        elsif header.downcase == 'Host'.downcase
+          host_from_header = value
+        end
+      end
+      if host_from_header == nil && uri.host
+        request['Host'] = uri.host
+      end
+      merged_body = ""
+      body.each do |chunk|
+        merged_body += chunk
+      end
+      if merged_body.length > 0
+        request.body = merged_body
+      elsif ['POST', 'PUT'].include?(method)
+        request.content_length = 0
+      end
+      return request
+    end
+
+    def convert_response_to_a(response_obj)
+      unless response_obj.kind_of?(Net::HTTPResponse)
+        raise TypeError,
+          "Expected Net::HTTPResponse, got #{response_obj.class}."
+      end
+      status = response_obj.code.to_i
+      headers = []
+      response_obj.canonical_each do |header, value|
+        headers << [header, value]
+      end
+      body = response_obj.body || ""
       return [status, headers, [body]]
     end
 
-    def self.from_ary(array)
-      status, headers, body = array
+    def convert_response_from_a(response_ary)
+      status, headers, body = response_ary
       message = STATUS_MESSAGES[status.to_i]
       response_class = STATUS_MAPPING[status.to_s]
       unless message && response_class
@@ -248,6 +198,56 @@ module HTTPAdapter #:nodoc:
       response.instance_variable_set('@body', merged_body)
 
       return response
+    end
+
+    def fetch_resource(request_ary, connection=nil)
+      method, uri, headers, body = request_ary
+      uri = Addressable::URI.parse(uri)
+      net_http_request = self.convert_request_from_a(
+        [method, uri, headers, body]
+      )
+      net_http_response = nil
+      unless connection
+        http = Net::HTTP.new(uri.host, uri.inferred_port)
+        if uri.normalized_scheme == 'https'
+          require 'net/https'
+          http.use_ssl = true
+          if http.respond_to?(:enable_post_connection_check=)
+            http.enable_post_connection_check = true
+          end
+          http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+          ca_file = File.expand_path(ENV['CA_FILE'] || '~/.cacert.pem')
+          if File.exists?(ca_file)
+            http.ca_file = ca_file
+          end
+          store = OpenSSL::X509::Store.new
+          store.set_default_paths
+          http.cert_store = store
+          context = http.instance_variable_get('@ssl_context')
+          if context && context.respond_to?(:tmp_dh_callback)
+            # Fix for annoying warning
+            context.tmp_dh_callback ||= lambda {}
+          end
+        end
+        connection = HTTPAdapter::Connection.new(
+          uri.host, uri.inferred_port, http,
+          :open => [:start, [], nil],
+          :close => [:finish, [], nil]
+        )
+      else
+        http = nil
+      end
+      if @connection_config
+        @connection_config.call(connection)
+      end
+      if connection.connection && !connection.connection.active?
+        connection.connection.start
+      end
+      net_http_response = connection.connection.request(net_http_request)
+      if http
+        connection.close
+      end
+      return self.convert_response_to_a(net_http_response)
     end
   end
 end

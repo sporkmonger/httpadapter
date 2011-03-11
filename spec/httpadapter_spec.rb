@@ -13,236 +13,115 @@
 #    limitations under the License.
 
 require 'spec_helper'
+require 'spec/httpadapter/adapter_type_checking_spec'
 
 require 'httpadapter'
 
 class StubAdapter
-  def to_ary
+  include HTTPAdapter
+
+  def convert_request_to_a(request_obj)
+    if request_obj == 42
+      raise TypeError, "This should never be fourty-two."
+    end
     return ['GET', '/', [], [""]]
   end
 
-  def self.from_ary(array)
-    return Object.new
+  def convert_request_from_a(request_ary)
+    if request_ary == 42
+      raise TypeError, "This should never be fourty-two."
+    end
+    return :stubbed_request
   end
 
-  def self.transmit(request, connection=nil)
+  def convert_response_to_a(response_obj)
+    if response_obj == 42
+      raise TypeError, "This should never be fourty-two."
+    end
+    return [200, [], ['']]
+  end
+
+  def convert_response_from_a(response_ary)
+    if response_ary == 42
+      raise TypeError, "This should never be fourty-two."
+    end
+    return :stubbed_response
+  end
+
+  def fetch_resource(request_ary, connection=nil)
+    if request_ary == 42 || connection == 42
+      raise TypeError, "This should never be fourty-two."
+    end
     return [200, [], ['']]
   end
 end
 
 class BogusAdapter
-  def initialize(request)
+  include HTTPAdapter
+end
+
+describe StubAdapter, 'a stubbed adapter class that does nothing' do
+  before do
+    @adapter = StubAdapter.new
+    @request = ['GET', '/', [], ['']]
+    @response = [200, [], ['']]
+  end
+
+  it_should_behave_like 'adapter type-checking example'
+
+  it 'should convert to a stubbed request object' do
+    @adapter.specialize_request(@request).should == :stubbed_request
+  end
+
+  it 'should convert to a stubbed response object' do
+    @adapter.specialize_response(@response).should == :stubbed_response
+  end
+
+  it 'should convert to a stubbed request array' do
+    @adapter.adapt_request(Object.new).should == @request
+  end
+
+  it 'should convert to a stubbed response array' do
+    @adapter.adapt_response(Object.new).should == @response
   end
 end
 
-describe HTTPAdapter, 'when attempting to specialize a request' do
-  it 'should raise an error for converting from an invalid tuple' do
+describe BogusAdapter, 'an empty class that does nothing' do
+  before do
+    @adapter = BogusAdapter.new
+    @request = ['GET', '/', [], ['']]
+    @response = [200, [], ['']]
+  end
+
+  it_should_behave_like 'adapter type-checking example'
+
+  it 'should raise an error when attempting to adapt a request' do
     (lambda do
-      HTTPAdapter.specialize_request(42, StubAdapter)
+      @adapter.adapt_request(Object.new)
     end).should raise_error(TypeError)
   end
 
-  it 'should raise an error for converting from an invalid tuple' do
+  it 'should raise an error when attempting to specialize a request' do
     (lambda do
-      HTTPAdapter.specialize_request([42], StubAdapter)
+      @adapter.specialize_request(@request)
     end).should raise_error(TypeError)
   end
 
-  it 'should raise an error for converting from an invalid tuple' do
+  it 'should raise an error when attempting to adapt a response' do
     (lambda do
-      HTTPAdapter.specialize_request(
-        [42, 42, 42, 42], StubAdapter
-      )
+      @adapter.adapt_response(Object.new)
     end).should raise_error(TypeError)
   end
 
-  it 'should raise an error for converting from an invalid tuple' do
+  it 'should raise an error when attempting to specialize a response' do
     (lambda do
-      HTTPAdapter.specialize_request(
-        ['GET', 42, [], ['']], StubAdapter
-      )
+      @adapter.specialize_response(@response)
     end).should raise_error(TypeError)
   end
 
-  it 'should raise an error for converting from an invalid tuple' do
+  it 'should raise an error when attempting to transmit a request' do
     (lambda do
-      HTTPAdapter.specialize_request(
-        ['GET', '/', 42, ['']], StubAdapter
-      )
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for converting from an invalid tuple' do
-    (lambda do
-      HTTPAdapter.specialize_request(
-        ['GET', '/', [42], ['']], StubAdapter
-      )
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for converting from an invalid tuple' do
-    (lambda do
-      HTTPAdapter.specialize_request(
-        ['GET', '/', [[42, 'value']], ['']], StubAdapter
-      )
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for converting from an invalid tuple' do
-    (lambda do
-      HTTPAdapter.specialize_request(
-        ['GET', '/', [['X', 42]], ['']], StubAdapter
-      )
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for converting from an invalid tuple' do
-    (lambda do
-      HTTPAdapter.specialize_request(
-        ['GET', '/', [], 42], StubAdapter
-      )
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for converting from an invalid tuple' do
-    (lambda do
-      HTTPAdapter.specialize_request(
-        ['GET', '/', [], ''], StubAdapter
-      )
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for converting from an invalid adapter' do
-    (lambda do
-      HTTPAdapter.specialize_request(
-        ['GET', '/', [], ['']], Object
-      )
-    end).should raise_error(TypeError)
-  end
-end
-
-describe HTTPAdapter, 'when attempting to adapt a request' do
-  it 'should raise an error for converting from an invalid adapter' do
-    (lambda do
-      HTTPAdapter.adapt_request(
-        Object.new, BogusAdapter
-      )
-    end).should raise_error(TypeError)
-  end
-end
-
-describe HTTPAdapter, 'when attempting to specialize a response' do
-  it 'should raise an error for converting from an invalid tuple' do
-    (lambda do
-      HTTPAdapter.specialize_response(42, StubAdapter)
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for converting from an invalid tuple' do
-    (lambda do
-      HTTPAdapter.specialize_response([42], StubAdapter)
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for converting from an invalid tuple' do
-    (lambda do
-      HTTPAdapter.specialize_response(
-        [42, 42, 42], StubAdapter
-      )
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for converting from an invalid tuple' do
-    (lambda do
-      HTTPAdapter.specialize_response(
-        [Object.new, [], ['']], StubAdapter
-      )
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for converting from an invalid tuple' do
-    (lambda do
-      HTTPAdapter.specialize_response(
-        ['', 42, ['']], StubAdapter
-      )
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for converting from an invalid tuple' do
-    (lambda do
-      HTTPAdapter.specialize_response(
-        [200, [42], ['']], StubAdapter
-      )
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for converting from an invalid tuple' do
-    (lambda do
-      HTTPAdapter.specialize_response(
-        [200, [[42, 'value']], ['']], StubAdapter
-      )
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for converting from an invalid tuple' do
-    (lambda do
-      HTTPAdapter.specialize_response(
-        [200, [['X', 42]], ['']], StubAdapter
-      )
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for converting from an invalid tuple' do
-    (lambda do
-      HTTPAdapter.specialize_response(
-        [200, [], 42], StubAdapter
-      )
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for converting from an invalid tuple' do
-    (lambda do
-      HTTPAdapter.specialize_response(
-        [200, [], ''], StubAdapter
-      )
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for converting from an invalid adapter' do
-    (lambda do
-      HTTPAdapter.specialize_response(
-        [200, [], ['']], Object
-      )
-    end).should raise_error(TypeError)
-  end
-end
-
-describe HTTPAdapter, 'when attempting to adapt a response' do
-  it 'should raise an error for converting from an invalid adapter' do
-    (lambda do
-      HTTPAdapter.adapt_response(
-        Object.new, BogusAdapter
-      )
-    end).should raise_error(TypeError)
-  end
-end
-
-describe HTTPAdapter, 'when attempting to transmit a request' do
-  it 'should raise an error for invalid request objects' do
-    (lambda do
-      HTTPAdapter.transmit(42, StubAdapter)
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for invalid adapter objects' do
-    (lambda do
-      HTTPAdapter.transmit(['GET', '/', [], ['']], BogusAdapter)
-    end).should raise_error(TypeError)
-  end
-
-  it 'should raise an error for invalid connection objects' do
-    (lambda do
-      HTTPAdapter.transmit(['GET', '/', [], ['']], StubAdapter, 42)
+      @adapter.transmit(@request)
     end).should raise_error(TypeError)
   end
 end
