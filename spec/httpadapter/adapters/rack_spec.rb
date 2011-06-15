@@ -12,6 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+
 require 'spec_helper'
 require 'spec/httpadapter/adapter_type_checking_spec'
 

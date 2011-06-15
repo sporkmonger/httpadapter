@@ -7,22 +7,22 @@
   <dt>License</dt><dd>Apache 2.0</dd>
 </dl>
 
-# Description
+## Description
 
 A library for translating HTTP request and response objects for various clients
 into a common representation.
 
-# Reference
+## Reference
 
 - {HTTPAdapter}
 
-# Adapters
+## Adapters
 
 - {HTTPAdapter::NetHTTPAdapter}
 - {HTTPAdapter::RackAdapter}
 - {HTTPAdapter::TyphoeusAdapter}
 
-# Example Usage
+## Example Usage
 
     adapter = HTTPAdapter::NetHTTPAdapter.new
     response = Net::HTTP.start('www.google.com', 80) { |http| http.get('/') }
@@ -43,6 +43,6 @@ into a common representation.
     #   ["<snip>"]
     # ]
 
-# Install
+## Install
 
 * sudo gem install httpadapter
