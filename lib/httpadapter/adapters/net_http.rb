@@ -17,7 +17,7 @@ require 'httpadapter/connection'
 require 'net/http'
 require 'addressable/uri'
 
-module HTTPAdapter #:nodoc:
+module HTTPAdapter
   class NetHTTPAdapter
     include HTTPAdapter
 

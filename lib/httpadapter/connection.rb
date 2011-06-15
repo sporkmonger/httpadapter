@@ -12,7 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-module HTTPAdapter #:nodoc:
+module HTTPAdapter
   class Connection
     def initialize(host, port, connection, options={})
       if !host.respond_to?(:to_str)

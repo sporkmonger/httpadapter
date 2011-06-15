@@ -18,7 +18,7 @@ require 'typhoeus/request'
 require 'typhoeus/response'
 require 'addressable/uri'
 
-module HTTPAdapter #:nodoc:
+module HTTPAdapter
   class TyphoeusAdapter
     include HTTPAdapter
 

@@ -18,7 +18,7 @@ require 'rack/request'
 require 'rack/response'
 require 'addressable/uri'
 
-module HTTPAdapter #:nodoc:
+module HTTPAdapter
   class RackAdapter
     include HTTPAdapter
 

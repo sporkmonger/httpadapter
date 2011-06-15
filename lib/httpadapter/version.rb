@@ -14,8 +14,8 @@
 
 # Used to prevent the class/module from being loaded more than once
 unless defined? HTTPAdapter::VERSION
-  module HTTPAdapter #:nodoc:
-    module VERSION #:nodoc:
+  module HTTPAdapter
+    module VERSION
       MAJOR = 1
       MINOR = 0
       TINY  = 0
