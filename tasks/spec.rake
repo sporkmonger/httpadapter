@@ -15,10 +15,13 @@ namespace :spec do
       t.rcov = false
     end
     t.rcov_opts = [
+      '--exclude', 'lib\\/compat',
       '--exclude', 'spec',
+      '--exclude', '\\.rvm\\/gems',
       '--exclude', '1\\.8\\/gems',
       '--exclude', '1\\.9\\/gems',
-      '--exclude', 'addressable\\/idna\\.rb', # unicode tables too big
+      '--exclude', '\\.rvm',
+      '--exclude', '\\/Library\\/Ruby'
     ]
   end
 

@@ -1,3 +1,7 @@
+== 1.0.0
+
+* rewrite to expose important implementation-specific configuration stuff
+
 == 0.2.1
 
 * added mock adapter for testing

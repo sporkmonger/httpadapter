@@ -19,20 +19,24 @@ require 'rack/response'
 require 'addressable/uri'
 
 module HTTPAdapter #:nodoc:
-  class RackRequestAdapter
-    def initialize(request, error_stream=STDERR)
-      unless request.kind_of?(Rack::Request)
-        raise TypeError, "Expected Rack::Request, got #{request.class}."
-      end
-      @request = request
-      @error_stream = error_stream
+  class RackAdapter
+    include HTTPAdapter
+
+    def initialize(options={})
+      options = {
+        :error_stream => $stderr
+      }.merge(options)
+      @error_stream = options[:error_stream]
     end
 
-    def to_ary
-      method = @request.request_method.to_s.upcase
-      uri = Addressable::URI.parse(@request.url.to_s).normalize.to_s
+    def convert_request_to_a(request_obj)
+      unless request_obj.kind_of?(Rack::Request)
+        raise TypeError, "Expected Rack::Request, got #{request_obj.class}."
+      end
+      method = request_obj.request_method.to_s.upcase
+      uri = Addressable::URI.parse(request_obj.url.to_s).normalize.to_s
       headers = []
-      @request.env.each do |parameter, value|
+      request_obj.env.each do |parameter, value|
         next if parameter !~ /^HTTP_/
         # Ugh, lossy canonicalization again
         header = (parameter.gsub(/^HTTP_/, '').split('_').map do |chunk|
@@ -40,12 +44,12 @@ module HTTPAdapter #:nodoc:
         end).join('-')
         headers << [header, value]
       end
-      return [method, uri, headers, @request.body]
+      return [method, uri, headers, request_obj.body]
     end
 
-    def self.from_ary(array)
+    def convert_request_from_a(request_ary)
       # These contortions are really obnoxious; lossiness is bad!
-      method, uri, headers, body = array
+      method, uri, headers, body = request_ary
       env = {}
       method = method.to_s.upcase
       uri = Addressable::URI.parse(uri)
@@ -88,26 +92,15 @@ module HTTPAdapter #:nodoc:
       return request
     end
 
-    def self.transmit(request, connection=nil)
-      raise NotImplementedError,
-        'No HTTP client implementation available to transmit a Rack::Request.'
-    end
-  end
-
-  class RackResponseAdapter
-    def initialize(response)
-      unless response.kind_of?(Rack::Response)
-        raise TypeError, "Expected Rack::Response, got #{response.class}."
+    def convert_response_to_a(response_obj)
+      unless response_obj.kind_of?(Rack::Response)
+        raise TypeError, "Expected Rack::Response, got #{response_obj.class}."
       end
-      @response = response
+      return response_obj.finish
     end
 
-    def to_ary
-      return @response.finish
-    end
-
-    def self.from_ary(array)
-      status, headers, body = array
+    def convert_response_from_a(request_ary)
+      status, headers, body = request_ary
       status = status.to_i
       body.each do |chunk|
         # Purely for strict type-checking
@@ -117,6 +110,11 @@ module HTTPAdapter #:nodoc:
       end
       response = Rack::Response.new(body, status, Hash[headers])
       return response
+    end
+
+    def fetch_resource(request_ary, connection=nil)
+      raise NotImplementedError,
+        'No HTTP client implementation available to transmit a Rack::Request.'
     end
   end
 end

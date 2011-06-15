@@ -14,22 +14,24 @@
 
 require 'httpadapter'
 
-module HTTPAdapter #:nodoc:
+module HTTPAdapter
   ##
   # A simple module for mocking the transmit method on an adapter.
   #
   # @example
   #   # Using RSpec, verify that the request being sent includes a user agent.
-  #   adapter = HTTPAdapter::MockAdapter.request_adapter do |req, conn|
-  #     method, uri, headers, body = req
+  #   adapter = HTTPAdapter::MockAdapter.create do |request_ary, connection|
+  #     method, uri, headers, body = request_ary
   #     headers.should be_any { |k, v| k.downcase == 'user-agent' }
   #   end
   module MockAdapter
-    def self.request_adapter(&block)
-      return Class.new do
+    def self.create(&block)
+      adapter = Class.new do
+        include HTTPAdapter
+
         @@block = block
 
-        def self.transmit(*params)
+        def fetch_resource(*params)
           response = @@block.call(*params)
           if response.respond_to?(:each)
             return response
@@ -38,6 +40,7 @@ module HTTPAdapter #:nodoc:
           end
         end
       end
+      return adapter.new
     end
   end
 end
