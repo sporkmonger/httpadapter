@@ -14,7 +14,36 @@
 
 # Used to prevent the class/module from being loaded more than once
 unless defined? HTTPAdapter::VERSION
+  ##
+  # A module which provides methods to aid in conversion of HTTP request and
+  # response objects.  It uses tuples as a generic intermediary format.
+  #
+  # @example
+  #   class StubAdapter
+  #     include HTTPAdapter
+  #   
+  #     def convert_request_to_a(request_obj)
+  #       return ['GET', '/', [], [""]] # Stubbed request tuple
+  #     end
+  #   
+  #     def convert_request_from_a(request_ary)
+  #       return Object.new # Stubbed request object
+  #     end
+  #   
+  #     def convert_response_to_a(response_obj)
+  #       return [200, [], ['']] # Stubbed response tuple
+  #     end
+  # 
+  #     def convert_response_from_a(response_ary)
+  #       return Object.new # Stubbed response object
+  #     end
+  # 
+  #     def fetch_resource(request_ary, connection=nil)
+  #       return [200, [], ['']] # Stubbed response tuple from server
+  #     end
+  #   end
   module HTTPAdapter
+    ##
     module VERSION
       MAJOR = 1
       MINOR = 0
