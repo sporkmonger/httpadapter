@@ -30,10 +30,8 @@ module HTTPAdapter
       adapter = Class.new do
         include HTTPAdapter
 
-        @@block = block
-
-        def fetch_resource(*params)
-          response = @@block.call(*params)
+        define_method('fetch_resource') do |*params|
+          response = block.call(*params)
           if response.respond_to?(:each)
             return response
           else
