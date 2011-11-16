@@ -1,3 +1,7 @@
+== 1.0.1
+
+* mock adapter set up to use a closure instead
+
 == 1.0.0
 
 * rewrite to expose important implementation-specific configuration stuff
